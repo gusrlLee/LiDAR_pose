@@ -14,5 +14,5 @@ set(SDK_INCLUDE_DIRS
 add_subdirectory(sdk)
 
 add_executable(${PROJECT_NAME} main.cpp)
-target_include_directories(${PROJECT_NAME} PUBLIC SDK_INCLUDE_DIRS)
-target_link_libraries(${PROJECT_NAME} SDK_LIBRARY)
+target_include_directories(${PROJECT_NAME} PUBLIC SDK_INCLUDE_DIRS ${OpenCV_INCLUDE_DIRS})
+target_link_libraries(${PROJECT_NAME} SDK_LIBRARY ${OpenCV_LIBS})

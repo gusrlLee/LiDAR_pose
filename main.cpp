@@ -3,6 +3,7 @@
 #include<signal.h>
 #include <unistd.h>
 
+#include "opencv2/opencv.hpp"
 #include "config.h"
 #include <rplidar.h>
 #include "sl_lidar.h" 
@@ -50,11 +51,41 @@ void ctrlc(int) {
     ctrl_c_pressed = true;
 }
 
+void transformTheta(const float theta, double* output_array){
+    double x_theta = 0;
+    double y_theta = 0;
+
+    if(0 <= theta && theta < 90){
+        x_theta = sin(theta*(PI/180));
+        y_theta = -1 * (cos(theta*(PI/180)));
+
+    } else if(90 <= theta && theta < 180){
+        x_theta = cos((theta - 90) * (PI/180));
+        y_theta = sin((theta - 90) * (PI/180));
+
+    } else if(180 <= theta && theta < 270) {
+        x_theta = -1 * sin((theta - 180) * (PI/180));
+        y_theta = cos((theta - 180.f) * (PI/180));
+
+    } else {
+        x_theta = -1 * cos((theta - 270) * (PI/180));
+        y_theta = -1 * sin((theta - 270) * (PI/180));
+    }
+
+    output_array[0] = x_theta;
+    output_array[1] = y_theta;
+
+    return;
+}
+
 int main(int argc, char** argv){
     // Trap Ctrl-C
     signal(SIGINT, ctrlc);
+    cv::Mat display_image;
+    double theta_array[2] = {0};
+    float temp = 0;
 
-    std::cout << "LIDAR OpenCV Display for Slamtec RPLIDAR Device\n" << std::endl;
+    std::cout << "LIDAR OpenCV Display_image for Slamtec RPLIDAR Device\n" << std::endl;
     // create the driver instance
     IChannel* _channel;
     sl_result     op_result;
@@ -99,20 +130,33 @@ int main(int argc, char** argv){
         while (1) {
             sl_lidar_response_measurement_node_hq_t nodes[8192];
             size_t   count = _countof(nodes);
+            display_image = cv::Mat::zeros(800, 800, CV_8UC3);  
 
             op_result = drv->grabScanDataHq(nodes, count);
 
             if (SL_IS_OK(op_result)) {
                 drv->ascendScanData(nodes, count);
                 for (int pos = 0; pos < (int)count ; ++pos) {
-                    printf("%s theta: %03.2f Dist: %08.2f Q: %d \n", 
-                        (nodes[pos].flag & SL_LIDAR_RESP_HQ_FLAG_SYNCBIT) ?"S ":"  ", 
-                        (nodes[pos].angle_z_q14 * 90.f) / 16384.f,
-                        nodes[pos].dist_mm_q2/4.0f,
-                        nodes[pos].quality >> SL_LIDAR_RESP_MEASUREMENT_QUALITY_SHIFT);
+                    printf("theta: %03.2f Dist: %08.2f\n", (nodes[pos].angle_z_q14 * 90.f) / 16384.f, nodes[pos].dist_mm_q2/4.0f);
+                    temp = nodes[pos].angle_z_q14*90.f/16384.f;
+                    transformTheta(temp, theta_array);
+                    
+                    int x = int((nodes[pos].dist_mm_q2/4.0f) * theta_array[0] * PIXEL_RATIO);
+                    int y = int((nodes[pos].dist_mm_q2/4.0f) * theta_array[1] * PIXEL_RATIO);
+                    // std::cout << "x : " << x << " y : " << y << std::endl;
+                    std::cout << "theta_array " << theta_array[0] << " " << theta_array[1] << "\n";
+                    
+                    cv::line(display_image, cv::Point(400, 400), cv::Point(x + 400, y + 400), cv::Scalar(100, 100, 100), 1, cv::LINE_AA);
+                    cv::circle(display_image, cv::Point(x + 400, y + 400), 1, cv::Scalar(0, 0, 255), -1, cv::FILLED);
                 }
             }
+
+            cv::imshow("LIDAR view", display_image);
             if (ctrl_c_pressed){ 
+                break;
+            }
+            int key = cv::waitKey(1);
+            if(key == 27){
                 break;
             }
         }

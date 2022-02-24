@@ -6,3 +6,5 @@
 #define STARTX 100  // Coordinates to place window
 #define STARTY 100
 #define BAUDRATE 115200
+#define PI 3.14
+#define PIXEL_RATIO 0.1
